@@ -14,6 +14,7 @@ from gnuradio import gr
 from gnuradio import uhd
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
+from datetime import datetime
 import math
 import time
 import pickle
@@ -119,7 +120,10 @@ if __name__ == '__main__':
     #derive code length
     proto.transmitCodeLen = len(proto.transmitCode)
     #(Optional) pickle transmitCode
-    code_pickle_pt = open('transmitCode.pickle', 'wb')
+    current = str(datetime.now()) #save current time
+    current_date = current.split()[0] #extract year-month-date info
+    current_time = current.split()[1].split('.')[0] #extract hr:min:sec info
+    code_pickle_pt = open('transmitCode_' + current_date + '_' + current_time + '.pickle', 'wb')
     pickle.dump(proto.transmitCode, code_pickle_pt)
     code_pickle_pt.close()
 
