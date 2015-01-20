@@ -1,3 +1,6 @@
-Read me.
-added
-added again
+Codes for simulating phase-coded compound barker code transmitter and receiver.
+Includes...
+1. code for exhaustive compound barker code generator with length range and PSLR (Peak-to-SideLobe Ratio) level.
+2. code for PCR (Pulse Compression Ratio) calculation.
+3. code for transmitter side (uses USRP)
+4. code for receiver side (uses USRP). It brute-forces all codes in the code set to find the transmitted code.
