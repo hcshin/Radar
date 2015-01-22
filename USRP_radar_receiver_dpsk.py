@@ -22,6 +22,8 @@ from scipy import signal
 
 
 def Find_Cor(Acode, Bcode):
+    #derive maximum correlation value by the length of the second operand
+    #N.B. this operation may not be commutative although cross-corrllation is commutative
     return numpy.divide( float(max(numpy.correlate(Acode,Bcode,'full'))) , len(Bcode) )
 
 
@@ -112,9 +114,10 @@ if __name__ == '__main__':
 #    time.sleep(10)
 
     while 1:
-        time.sleep(60)
+        time.sleep(60) #To saturate buffer
         tb.stop()
         Rarr=[]
+        #byte to python variable (1, -1, or 0)
         with open('rcvd_code.byte', 'rb') as f:
             for chunk in iter(lambda: f.read(1), b''):
                 if chunk.encode('hex') == 'ff' :
@@ -124,66 +127,75 @@ if __name__ == '__main__':
           	    Rarr.append(1)
     	        else:
 	            Rarr.append(0)
-	    print len(Rarr)
+        print('Received buffer length = %d' % len(Rarr))
 
-        tb.file_sink.close()
+        tb.file_sink.close() #reset file buffer
         tb.file_sink.open("rcvd_code.byte")
-        tb.wait()
-        tb.start()
+        tb.wait() #Wait till the reconfiguration completes
+        tb.start() #Restart flowgraph
 
-        spoint = 0
-        fpoint = 0
-        Carray = pickle.load(open('codes_passed_PSLR_dB_and_PCR_criterion.pickle'))
+        spoint = 0 #Start point
+        fpoint = 0 #End point
+        Carray = pickle.load(open('codes_passed_PSLR_dB_and_PCR_criterion.pickle')) #Load code set
 
-        while 1:
+        while 1: #Infinitely brute-force incoming radar pulses
             pspoint=spoint
-    	    for x in range(spoint,len(Rarr)-1):
-	        if Rarr[x] != 0 :
-		    spoint=x
-		    break
-	    for x in range(spoint,len(Rarr)-1):
-	        a=0
-	        for y in range(0,19):
-		    a=a+abs(Rarr[min(x+y,len(Rarr)-1)])
-	        if a == 0 :
-		    fpoint = x;
-		    break
-		
-    	    Rcode = Rarr[spoint:fpoint-1]
-	    print(spoint, fpoint)
-	    if spoint == fpoint:
-	        break
+            #Search for the start point
+            #Start point == first nonzero element
+            for x in range(spoint,len(Rarr)-1):
+                if Rarr[x] != 0 :
+                    spoint=x
+                    break
+            #Search for the end point
+            #End point == the position followed by 20 consecutive zeros
+            #I know the following routine is very inefficient... (note for future optimization)
+            for x in range(spoint,len(Rarr)-1):
+                a=0
+                for y in range(19):
+                    #x == start index of the search window
+                    #y == relative search index from x (increses by 1 for every loops)
+                    #x+y == absolute search index (from index 0. Also increses)
+                    #min(x+y,len(Rarr)-1): minimum index between the end of buffer and current absolute index
+                    #^to prevent out-of-bound error
+                    a=a+abs(Rarr[min(x+y,len(Rarr)-1)]) #if 0 continues to appear the value of a will remain 0
+                    #if there are consecutive 20 zeros
+                    if a == 0 :
+                        fpoint = x; #let the end index of the code to be the start index of the search window
+                        break
 
-	    if fpoint - spoint < 13:
-	        spoint = fpoint
-	        break
-	    spoint=fpoint
-		
+            Rcode = Rarr[spoint:fpoint-1] #extract received code chunk
+            print 'code chunk start & end index\n\t=(%d, %d)' % (spoint, fpoint)
+            if spoint == fpoint:
+                break
 
-		
-	    maxCor=0.0
-	    maxIndex=0
-	    print('candidate--------------------------')
-	    for x in range(0,957):
-	        code = Carray[x][0] 
-	        tmpCor = Find_Cor(code, Rcode)
-	        tmpCor2 = Find_Cor(Rcode, code)
+            #ignore codes whose length is below 13 (to filter out apparent false-positives)
+            if fpoint - spoint < 13:
+                spoint = fpoint
+                break
+            spoint=fpoint #restart search from the end point of the code chunk (this is also inefficient)
 
-                if tmpCor2 >= 0.8 or tmpCor >=0.9:
-       	            print(x, len(code), tmpCor, tmpCor2  )
-			
+            maxCor=0.0 #To store the maximum cross-correlation value
+            maxIndex=0 #To store the code index of the  maximum cross-correlation value
+            print('candidate code list which exceeds the threshold --------------------')
+            for x in range(len(Carray)):
+                code = Carray[x][0] #extract code (N.B. Carry structure: [[code], PCR, PSLR_dB])
+                tmpCor = Find_Cor(code, Rcode)
+                tmpCor2 = Find_Cor(Rcode, code) #reverse correlation
+
+                if tmpCor2 >= 0.8 or tmpCor >= 0.9:
+                    print('(code index, code length, cross-corr, cross-corr-rev)\n\t=(%d, %d, %f, %f)' % (x, len(code), tmpCor, tmpCor2))
+
+                #refresh maximum correlation value
                 if maxCor < tmpCor:
-    	            maxIndex = x
-		    maxCor = tmpCor
-		    
+                    maxIndex = x
+                    maxCor = tmpCor
+
             print('Max-------------------------------')
-	    	    #    print(Carray[maxIndex][0])
-            print(maxCor)
-            print(maxIndex) 
+            print('Maximum cross-corralation = %f' % maxCor)
+            print('Index of the code = %d' % maxIndex)
             print('----------------------------------\n\n') 
         # while loop for Identifying end			
     #while loop for tb end
     raw_input('Press Enter to quit: ')
-
     tb.stop()
     tb.wait()
