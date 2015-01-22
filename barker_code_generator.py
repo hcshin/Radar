@@ -247,4 +247,4 @@ if __name__ == '__main__':
     del step5
     print 'step6 completed'
     print 'len(codes which passed PSLR_dB criterion) = ', len(step6)
-    pickle.dump(step6, open(dir_output_dest.split('.')[0] + 'PSLR_dB_criterion.pickle', 'wb'))
+    pickle.dump(step6, open(dir_output_dest.split('.')[0] + '+PSLR_dB_criterion.pickle', 'wb'))
